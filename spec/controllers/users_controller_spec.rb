@@ -54,10 +54,48 @@ describe UsersController do
         get :index
         response.should have_selector("div.pagination")
         response.should have_selector("span.disabled", :content => "Previous")
-        response.should have_selector("a", :href => "/users?page=2",
-                                           :content => "2")
-        response.should have_selector("a", :href => "/users?page=2",
-                                           :content => "Next")
+        response.should have_selector("a", :href => "/users?page=2", :content => "2")
+        response.should have_selector("a", :href => "/users?page=2", :content => "Next")
+      end
+    end
+
+    describe "for signed-in non-admin users" do
+
+      it "non admins should not have delete options in user listing" do
+        first  = Factory(:user, :email => "example@railstutorial.org")
+        second = test_sign_in(Factory(:user, :email => "another@example.com"))
+        third  = Factory(:user, :email => "another@example.net")
+        admin  = Factory(:user, :email => "admin@example.com", :admin => true)
+        @users = [first, second, third, admin]
+        get :index
+        @users[0..3].each do |user|
+          response.should_not have_selector("a", :href => "/users/" + user.id.to_s, :title => "Delete " + user.name, :content => "delete")
+        end
+      end
+    end
+
+    describe "for signed-in admin users" do
+
+      it "admins should have delete options in user listing" do
+        first  = Factory(:user, :email => "example@railstutorial.org")
+        second = Factory(:user, :email => "another@example.com")
+        third  = Factory(:user, :email => "another@example.net")
+        admin  = test_sign_in(Factory(:user, :email => "admin@example.com", :admin => true))
+        @users = [first, second, third, admin]
+        get :index
+        @users[0..2].each do |user|
+          response.should have_selector("a", :href => "/users/" + user.id.to_s, :title => "Delete " + user.name, :content => "delete")
+        end
+      end
+
+      it "admins should omit delete options in user listing for own user" do
+        first  = Factory(:user, :email => "example@railstutorial.org")
+        second = Factory(:user, :email => "another@example.com")
+        third  = Factory(:user, :email => "another@example.net")
+        admin  = test_sign_in(Factory(:user, :email => "admin@example.com", :admin => true))
+        @users = [first, second, third, admin]
+        get :index
+        response.should_not have_selector("a", :href => "/users/" + @users[3].id.to_s, :title => "Delete " + @users[3].name, :content => "delete")
       end
     end
   end
@@ -325,13 +363,15 @@ describe UsersController do
     describe "as an admin user" do
 
       before(:each) do
-        admin = Factory(:user, :email => "admin@example.com", :admin => true)
-        test_sign_in(admin)
+        admin = test_sign_in(Factory(:user, :email => "admin@example.com", :admin => true))
+        @users = [@user, admin]
       end
 
-      it "should destroy the user" do
+      it "should destroy the user if not self" do
         lambda do
-          delete :destroy, :id => @user
+          @users[0..1].each do |user|
+            delete :destroy, :id => user
+          end
         end.should change(User, :count).by(-1)
       end
 

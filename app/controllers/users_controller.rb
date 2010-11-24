@@ -14,11 +14,13 @@ class UsersController < ApplicationController
   end
 
   def new
+    return redirect_to root_path, :notice => "You are already signed in!" if signed_in?
     @user = User.new
     @title = "Sign up"
   end
 
   def create
+    return redirect_to root_path, :notice => "You are already signed in!" if signed_in?
     @user = User.new(params[:user])
     if @user.save
       sign_in @user
@@ -48,7 +50,9 @@ class UsersController < ApplicationController
   end
 
   def destroy
-    User.find(params[:id]).destroy
+    user = User.find(params[:id])
+    return redirect_to users_path, :notice => "You can not delete yourself!" if current_user?(user)
+    user.destroy
     flash[:success] = "User destroyed."
     redirect_to users_path
   end
